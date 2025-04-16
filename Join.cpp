@@ -14,11 +14,11 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
 	// STEP ONE: Setup
     const uint num_buckets = MEM_SIZE_IN_PAGE - 1;
 
-    // retrieve scratch page
-    Page *scratch_page = mem->mem_page(num_buckets);  // this is arbitrary (only need one page)
-    if (!scratch_page->empty()) {
-        scratch_page->reset();
-    }
+    // // retrieve scratch page
+    // Page *scratch_page = mem->mem_page(num_buckets);  // this is arbitrary (only need one page)
+    // if (!scratch_page->empty()) {
+    //     scratch_page->reset();
+    // }
 
     // initialize output vector
     std::vector<Bucket> partitions;
@@ -26,7 +26,7 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
 
     // initialize buckets
     for (size_t b = 0; b < num_buckets; b++) {
-        partitions.push_back(Bucket(disk));
+        partitions.emplace_back(disk);
     }
 
     // STEP TWO: Hash left_rel
@@ -35,16 +35,30 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
     for(uint rel_page = left_rel.first; rel_page < left_rel.second; rel_page++) {
         cout << "Loading page " << rel_page << ": ";
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
+		Page* scratch_page = mem->mem_page(num_buckets);
         cout << scratch_page->size() << " records found\n";
 
         // loop through record_ids in rel_page
         for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
             Record record = scratch_page->get_record(record_id);  // load record
             uint h1 = record.partition_hash() % num_buckets;  // hash record
-            partitions[h1].add_left_rel_page(rel_page);  // add record to bucket
-        }
+			Page* buffer = mem->mem_page(h1);
+			buffer->loadRecord(record);
 
+			if(buffer->full()) {
+				uint out_disk_page = mem->flushToDisk(disk, h1);
+				partitions[h1].add_left_rel_page(out_disk_page);  // add record to bucket
+			}
+        }
         scratch_page->reset();  // reset scratch page
+    }
+	// Flush partially filled buckets to disk
+	for (uint b = 0; b < num_buckets; ++b) {
+        Page* bucket = mem->mem_page(b);
+        if (!bucket->empty()) {
+            uint out_dp = mem->flushToDisk(disk, b);
+            partitions[b].add_left_rel_page(out_dp);
+        }
     }
 
     // STEP THREE: Hash right_rel
@@ -53,16 +67,31 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
     for(uint rel_page = right_rel.first; rel_page < right_rel.second; rel_page++) {
         cout << "Loading page " << rel_page << ": ";
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
+		Page* scratch_page = mem->mem_page(num_buckets);
         cout << scratch_page->size() << " records found\n";
 
         // loop through record_ids in rel_page
         for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
             Record record = scratch_page->get_record(record_id);  // load record
             uint h1 = record.partition_hash() % num_buckets;  // hash record
-            partitions[h1].add_right_rel_page(rel_page);  // add record to bucket
+			Page* buffer = mem->mem_page(h1);
+			buffer->loadRecord(record);
+
+			if(buffer->full()) {
+				uint out_disk_page = mem->flushToDisk(disk, h1);
+				partitions[h1].add_right_rel_page(out_disk_page);  // add record to bucket
+			}
         }
 
         scratch_page->reset();  // reset scratch page
+    }
+	// Flush partially filled buckets to disk
+	for (uint b = 0; b < num_buckets; ++b) {
+        Page* bucket = mem->mem_page(b);
+        if (!bucket->empty()) {
+            uint out_dp = mem->flushToDisk(disk, b);
+            partitions[b].add_right_rel_page(out_dp);
+        }
     }
 
 	return partitions;
@@ -107,7 +136,7 @@ vector<uint> probe(Disk* disk, Mem* mem, vector<Bucket>& partitions) {
 		// Build an in-memory hash table where each slot is a vector of Records.
         vector<vector<Record>> hash_table(hash_table_size);
 
-		// Iterate over all records in the smaller relation
+		// Iterate over all records in the smaller partition
 		for(uint disk_page_id : smaller_pages) {
 			// Load in records from disk into a page
 			mem->loadFromDisk(disk, disk_page_id, SCAN_MEM_PAGE);
@@ -122,7 +151,7 @@ vector<uint> probe(Disk* disk, Mem* mem, vector<Bucket>& partitions) {
 				hash_table[hash_index].push_back(r);
 			}
 		}
-		// Iterate over all records in the larger relation, compare to hashed records of smaller relation to find joins
+		// Iterate over all records in the larger partition, compare to hashed records of smaller relation to find joins
 		for(uint disk_page_id : larger_pages) {
 			// Load in records from disk into a page
 			mem->loadFromDisk(disk, disk_page_id, SCAN_MEM_PAGE);
