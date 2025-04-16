@@ -1,5 +1,5 @@
 #include "Join.hpp"
-#include "Record.hpp"
+#include <iostream>
 
 #include <vector>
 
@@ -15,7 +15,10 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
     const uint num_buckets = MEM_SIZE_IN_PAGE - 1;
 
     // retrieve scratch page
-    Page *scratch_page = mem->mem_page(uint(0));  // this is arbitrary (only need one page)
+    Page *scratch_page = mem->mem_page(num_buckets);  // this is arbitrary (only need one page)
+    if (!scratch_page->empty()) {
+        scratch_page->reset();
+    }
 
     // initialize output vector
     std::vector<Bucket> partitions;
@@ -30,7 +33,9 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
 
     // loop through page_ids in left_rel
     for(uint rel_page = left_rel.first; rel_page < left_rel.second; rel_page++) {
+        cout << "Loading page " << rel_page << ": ";
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
+        cout << scratch_page->size() << " records found\n";
 
         // loop through record_ids in rel_page
         for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
@@ -44,9 +49,11 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
 
     // STEP THREE: Hash right_rel
 
-    // loop through page_ids in left_rel
+    // loop through page_ids in right_rel
     for(uint rel_page = right_rel.first; rel_page < right_rel.second; rel_page++) {
+        cout << "Loading page " << rel_page << ": ";
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
+        cout << scratch_page->size() << " records found\n";
 
         // loop through record_ids in rel_page
         for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
@@ -80,7 +87,7 @@ vector<uint> probe(Disk* disk, Mem* mem, vector<Bucket>& partitions) {
     const uint hash_table_size = MEM_SIZE_IN_PAGE - 2;
 
 	// Iterate over all buckets from partition phase
-	for(int k = 0; k < partitions.size(); k++) {
+	for(uint k = 0; k < partitions.size(); k++) {
 		Bucket& bucket = partitions[k];
 
 		// Decide which partition is smaller
