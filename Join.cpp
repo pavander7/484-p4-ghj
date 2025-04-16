@@ -15,7 +15,7 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
     const uint num_buckets = MEM_SIZE_IN_PAGE - 1;
 
     // retrieve scratch page
-    auto scratch_page = mem->mem_page(num_buckets);
+    Page *scratch_page = mem->mem_page(uint(0));  // this is arbitrary (only need one page)
 
     // initialize output vector
     std::vector<Bucket> partitions;
@@ -33,7 +33,7 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
 
         // loop through record_ids in rel_page
-        for(uint record_id; record_id < scratch_page->size(); record_id++) {
+        for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
             Record record = scratch_page->get_record(record_id);  // load record
             uint h1 = record.partition_hash() % num_buckets;  // hash record
             partitions[h1].add_left_rel_page(rel_page);  // add record to bucket
@@ -43,13 +43,13 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
     }
 
     // STEP THREE: Hash right_rel
-    
+
     // loop through page_ids in left_rel
     for(uint rel_page = right_rel.first; rel_page < right_rel.second; rel_page++) {
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
 
         // loop through record_ids in rel_page
-        for(uint record_id; record_id < scratch_page->size(); record_id++) {
+        for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
             Record record = scratch_page->get_record(record_id);  // load record
             uint h1 = record.partition_hash() % num_buckets;  // hash record
             partitions[h1].add_right_rel_page(rel_page);  // add record to bucket
