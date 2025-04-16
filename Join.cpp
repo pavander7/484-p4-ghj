@@ -1,4 +1,5 @@
 #include "Join.hpp"
+#include "Record.hpp"
 
 #include <vector>
 
@@ -10,8 +11,53 @@ using namespace std;
  */
 vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
                          pair<uint, uint> right_rel) {
-	// TODO: implement partition phase
-	vector<Bucket> partitions(0, Bucket(disk)); // placeholder
+	// STEP ONE: Setup
+    const uint num_buckets = MEM_SIZE_IN_PAGE - 1;
+
+    // retrieve scratch page
+    auto scratch_page = mem->mem_page(num_buckets);
+
+    // initialize output vector
+    std::vector<Bucket> partitions;
+    partitions.reserve(num_buckets);
+
+    // initialize buckets
+    for (size_t b = 0; b < num_buckets; b++) {
+        partitions.push_back(Bucket(disk));
+    }
+
+    // STEP TWO: Hash left_rel
+
+    // loop through page_ids in left_rel
+    for(uint rel_page = left_rel.first; rel_page < left_rel.second; rel_page++) {
+        mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
+
+        // loop through record_ids in rel_page
+        for(uint record_id; record_id < scratch_page->size(); record_id++) {
+            Record record = scratch_page->get_record(record_id);  // load record
+            uint h1 = record.partition_hash() % num_buckets;  // hash record
+            partitions[h1].add_left_rel_page(rel_page);  // add record to bucket
+        }
+
+        scratch_page->reset();  // reset scratch page
+    }
+
+    // STEP THREE: Hash right_rel
+    
+    // loop through page_ids in left_rel
+    for(uint rel_page = right_rel.first; rel_page < right_rel.second; rel_page++) {
+        mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
+
+        // loop through record_ids in rel_page
+        for(uint record_id; record_id < scratch_page->size(); record_id++) {
+            Record record = scratch_page->get_record(record_id);  // load record
+            uint h1 = record.partition_hash() % num_buckets;  // hash record
+            partitions[h1].add_right_rel_page(rel_page);  // add record to bucket
+        }
+
+        scratch_page->reset();  // reset scratch page
+    }
+
 	return partitions;
 }
 
