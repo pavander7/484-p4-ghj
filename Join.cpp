@@ -33,10 +33,10 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
 
     // loop through page_ids in left_rel
     for(uint rel_page = left_rel.first; rel_page < left_rel.second; rel_page++) {
-        cout << "Loading page " << rel_page << ": ";
+        //cout << "Loading page " << rel_page << ": ";
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
 		Page* scratch_page = mem->mem_page(num_buckets);
-        cout << scratch_page->size() << " records found\n";
+        //cout << scratch_page->size() << " records found\n";
 
         // loop through record_ids in rel_page
         for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
@@ -65,10 +65,10 @@ vector<Bucket> partition(Disk* disk, Mem* mem, pair<uint, uint> left_rel,
 
     // loop through page_ids in right_rel
     for(uint rel_page = right_rel.first; rel_page < right_rel.second; rel_page++) {
-        cout << "Loading page " << rel_page << ": ";
+        //cout << "Loading page " << rel_page << ": ";
         mem->loadFromDisk(disk, rel_page, num_buckets);  // load page
 		Page* scratch_page = mem->mem_page(num_buckets);
-        cout << scratch_page->size() << " records found\n";
+        //cout << scratch_page->size() << " records found\n";
 
         // loop through record_ids in rel_page
         for(uint record_id = 0; record_id < scratch_page->size(); record_id++) {
